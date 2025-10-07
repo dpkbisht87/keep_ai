@@ -2,7 +2,9 @@ package com.notes.keepapi.service;
 
 import com.notes.keepapi.model.ChecklistItem;
 import com.notes.keepapi.model.Note;
+import com.notes.keepapi.model.PurchaseHistory;
 import com.notes.keepapi.repository.NoteRepository;
+import com.notes.keepapi.repository.PurchaseHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @RequiredArgsConstructor
 public class NoteService {
     private final NoteRepository noteRepository;
+    private final PurchaseHistoryRepository purchaseHistoryRepository;
     private final AtomicLong checklistItemIdGenerator = new AtomicLong(1);
 
     public Note createNote(Note note) {
@@ -94,6 +97,10 @@ public class NoteService {
                 boolean newState = !item.isChecked();
                 item.setChecked(newState);
                 log.debug("Checklist item {} checked state changed to: {}", itemId, newState);
+
+                // Record purchase history
+                recordPurchaseHistory(noteId, item, newState);
+
                 note.setUpdatedAt(LocalDateTime.now());
                 noteRepository.save(note);
             });
@@ -104,5 +111,21 @@ public class NoteService {
 
             return itemOpt;
         });
+    }
+
+    /**
+     * Records purchase history when an item is checked/unchecked
+     */
+    private void recordPurchaseHistory(Long noteId, ChecklistItem item, boolean checkedState) {
+        PurchaseHistory history = PurchaseHistory.builder()
+                .noteId(noteId)
+                .itemId(item.getId())
+                .itemText(item.getText())
+                .checkedState(checkedState)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        purchaseHistoryRepository.save(history);
+        log.debug("Recorded purchase history for item '{}' - checked: {}", item.getText(), checkedState);
     }
 }

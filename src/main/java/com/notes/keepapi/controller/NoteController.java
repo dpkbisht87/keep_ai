@@ -1,8 +1,10 @@
 package com.notes.keepapi.controller;
 
 import com.notes.keepapi.model.ChecklistItem;
+import com.notes.keepapi.model.ItemPrediction;
 import com.notes.keepapi.model.Note;
 import com.notes.keepapi.service.NoteService;
+import com.notes.keepapi.service.PredictionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NoteController {
     private final NoteService noteService;
+    private final PredictionService predictionService;
 
     @PostMapping
     public ResponseEntity<Note> createNote(@RequestBody Note note) {
@@ -87,6 +90,21 @@ public class NoteController {
                 })
                 .orElseGet(() -> {
                     log.warn("Note or checklist item not found - noteId: {}, itemId: {}", noteId, itemId);
+                    return ResponseEntity.notFound().build();
+                });
+    }
+
+    @GetMapping("/{id}/guess")
+    public ResponseEntity<List<ItemPrediction>> guessItemsNeeded(@PathVariable Long id) {
+        log.info("Generating item predictions for note ID: {}", id);
+        return noteService.getNoteById(id)
+                .map(note -> {
+                    List<ItemPrediction> predictions = predictionService.predictItemsNeeded(note);
+                    log.info("Generated {} predictions for note ID: {}", predictions.size(), id);
+                    return ResponseEntity.ok(predictions);
+                })
+                .orElseGet(() -> {
+                    log.warn("Note not found for predictions with ID: {}", id);
                     return ResponseEntity.notFound().build();
                 });
     }
